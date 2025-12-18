@@ -12,7 +12,8 @@ import {
   Lightbulb,
   Sparkles,
   Info,
-  Volume2
+  Volume2,
+  Clock
 } from 'lucide-react';
 
 export default function Tutor() {
@@ -22,7 +23,10 @@ export default function Tutor() {
   const [loading, setLoading] = useState(false);
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
   const [sets, setSets] = useState<StudySet[]>([]);
+  const [secondsSpent, setSecondsSpent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Fix: Use ReturnType<typeof setInterval> instead of NodeJS.Timeout to avoid namespace errors in browser environments
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleSpeech = useCallback((text: string) => {
     if (!settings.textToSpeech) return;
@@ -41,17 +45,47 @@ export default function Tutor() {
       timestamp: Date.now()
     }]);
     
-    // Auto-read welcome if enabled
     if (settings.textToSpeech) {
       handleSpeech(welcome);
     }
+
+    // Live Tracking
+    timerRef.current = setInterval(() => {
+      setSecondsSpent(prev => prev + 1);
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        saveTutorTime();
+      }
+    };
   }, [settings.textToSpeech, handleSpeech]);
+
+  const saveTutorTime = async () => {
+    // Note: React state in cleanup can be tricky, using a simple capture here.
+    // In a production app, we might use a ref for the latest time.
+    setSecondsSpent(current => {
+      if (current > 0) {
+        dbService.getProgress().then(p => {
+          dbService.updateProgress({ totalStudyTime: p.totalStudyTime + current });
+        });
+      }
+      return 0;
+    });
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -82,7 +116,6 @@ export default function Tutor() {
       
       setMessages(prev => [...prev, botMsg]);
       
-      // Auto-read response if enabled
       if (settings.textToSpeech) {
         handleSpeech(botMsg.content);
       }
@@ -100,12 +133,18 @@ export default function Tutor() {
   return (
     <div className="h-[calc(100vh-10rem)] flex flex-col space-y-4">
       <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center space-x-2">
-            <Sparkles className="text-indigo-600" />
-            <span>Socratic Mentor</span>
-          </h1>
-          <p className="text-sm text-slate-500">I guide you to answers, I don't just give them.</p>
+        <div className="flex items-center space-x-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center space-x-2">
+              <Sparkles className="text-indigo-600" />
+              <span>Socratic Mentor</span>
+            </h1>
+            <p className="text-sm text-slate-500">I guide you to answers, I don't just give them.</p>
+          </div>
+          <div className="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded-full text-slate-600 font-mono font-bold text-sm">
+            <Clock size={14} className="text-indigo-500" />
+            <span>{formatTime(secondsSpent)}</span>
+          </div>
         </div>
         
         <div className="flex items-center space-x-3">

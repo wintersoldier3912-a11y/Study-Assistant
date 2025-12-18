@@ -20,7 +20,7 @@ import { AccessibilitySettings } from './types';
 import { dbService } from './services/dbService';
 
 const DEFAULT_SETTINGS: AccessibilitySettings = {
-  dyslexiaFont: false,
+  dyslexiaFont: true, // Enabled by default as requested
   highContrast: false,
   textToSpeech: false,
   ttsSpeed: 1.0,
@@ -57,6 +57,21 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showBreak, setShowBreak] = useState(false);
 
+  // Sync accessibility classes to the body for global effect
+  useEffect(() => {
+    if (settings.dyslexiaFont) {
+      document.body.classList.add('dyslexia-font');
+    } else {
+      document.body.classList.remove('dyslexia-font');
+    }
+
+    if (settings.highContrast) {
+      document.body.classList.add('high-contrast');
+    } else {
+      document.body.classList.remove('high-contrast');
+    }
+  }, [settings.dyslexiaFont, settings.highContrast]);
+
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -79,7 +94,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, [settings.adhdFocusMode, settings.showBreakPrompts]);
 
   return (
-    <div className={`flex min-h-screen ${settings.dyslexiaFont ? 'dyslexia-font' : ''} ${settings.highContrast ? 'high-contrast' : ''}`}>
+    <div className="flex min-h-screen">
       {/* Sidebar Navigation */}
       <aside className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col fixed h-full z-20">
         <div className="flex items-center space-x-2 mb-10 px-2">

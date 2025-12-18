@@ -45,7 +45,15 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-  if (!progress) return <div>Loading...</div>;
+  if (!progress) return <div className="p-8 text-center text-slate-400 animate-pulse">Initializing AISA intelligence...</div>;
+
+  const formatStudyTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m`;
+    return `${seconds}s`;
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -57,7 +65,6 @@ export default function Dashboard() {
           <p className="text-slate-500 mt-1">Ready for some productive discovery today?</p>
         </div>
         
-        {/* External Motivation Bar (XP) */}
         <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 flex items-center space-x-6 shadow-sm">
           <div className="flex items-center space-x-2">
             <Flame size={20} className="text-orange-500" />
@@ -75,7 +82,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard label="Concepts Mastered" value={progress.masteredConcepts} icon={CheckCircle2} color="bg-emerald-500" extra="Keep it up!" />
         <StatCard label="Global Rank" value="#42" icon={Trophy} color="bg-indigo-500" extra="Top 5%" />
-        <StatCard label="Study Time" value={`${(progress.totalStudyTime / 60).toFixed(1)}h`} icon={Clock} color="bg-amber-500" extra="Weekly Goal" />
+        <StatCard label="Study Time" value={formatStudyTime(progress.totalStudyTime)} icon={Clock} color="bg-amber-500" extra="Weekly Goal" />
         <StatCard label="Next Review" value="In 4 Hours" icon={Calendar} color="bg-blue-500" />
       </div>
 
@@ -148,10 +155,10 @@ export default function Dashboard() {
                  </div>
                  <div>
                     <div className="text-sm font-bold text-slate-900">Local Cache Ready</div>
-                    <div className="text-xs text-slate-400">12 items pending sync</div>
+                    <div className="text-xs text-slate-400">Ready for offline focus</div>
                  </div>
               </div>
-              <button className="text-xs font-bold text-indigo-600 hover:underline">Sync Now</button>
+              <button className="text-xs font-bold text-indigo-600 hover:underline">Sync Status</button>
            </div>
         </div>
       </div>

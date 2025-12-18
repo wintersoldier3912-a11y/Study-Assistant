@@ -33,10 +33,12 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
-        .dyslexia-font {
+        /* Improved dyslexia-font selector to ensure all children inherit the font */
+        .dyslexia-font, .dyslexia-font * {
             font-family: 'Lexend', sans-serif !important;
             letter-spacing: 0.03em;
             word-spacing: 0.1em;
+            line-height: 1.6 !important;
         }
 
         .high-contrast {

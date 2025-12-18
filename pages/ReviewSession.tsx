@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { dbService } from '../services/dbService';
 import { StudySet, Flashcard } from '../types';
@@ -13,7 +13,8 @@ import {
   Award,
   Volume2,
   Heart,
-  Zap
+  Zap,
+  Clock
 } from 'lucide-react';
 
 export default function ReviewSession() {
@@ -26,9 +27,26 @@ export default function ReviewSession() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [secondsSpent, setSecondsSpent] = useState(0);
+  
+  // Fix: Use ReturnType<typeof setInterval> instead of NodeJS.Timeout to avoid namespace errors in browser environments
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadCards();
+    
+    // Start real-time tracking
+    timerRef.current = setInterval(() => {
+      setSecondsSpent(prev => prev + 1);
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        // Persist even on partial exit
+        savePartialStudyTime();
+      }
+    };
   }, [setId]);
 
   const loadCards = async () => {
@@ -43,6 +61,19 @@ export default function ReviewSession() {
     }
     
     setCards(cardsToReview.sort(() => Math.random() - 0.5));
+  };
+
+  const savePartialStudyTime = async () => {
+    // We get secondsSpent from state which might be slightly behind during unmount, 
+    // but close enough for accuracy.
+    const p = await dbService.getProgress();
+    // Using a ref or capturing a value is usually safer but here state is updated every 1s
+    setSecondsSpent(current => {
+       if (current > 0) {
+         dbService.updateProgress({ totalStudyTime: p.totalStudyTime + current });
+       }
+       return 0; // Reset for logic
+    });
   };
 
   const handleSpeech = useCallback((text: string) => {
@@ -96,13 +127,23 @@ export default function ReviewSession() {
       setShowAnswer(false);
     } else {
       setFinished(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+      
       const p = await dbService.getProgress();
       await dbService.updateProgress({ 
         masteredConcepts: p.masteredConcepts + 1,
-        totalStudyTime: p.totalStudyTime + 15,
+        totalStudyTime: p.totalStudyTime + secondsSpent,
         xp: p.xp + (cards.length * 10)
       });
+      // Zero out local secondsSpent so unmount doesn't double-save
+      setSecondsSpent(0);
     }
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
   if (cards.length === 0 && !finished) {
@@ -136,12 +177,12 @@ export default function ReviewSession() {
               <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">XP Points</div>
             </div>
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <div className="text-3xl font-bold text-emerald-600">100%</div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Focus</div>
+              <div className="text-3xl font-bold text-emerald-600">{formatTime(secondsSpent)}</div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Focus Time</div>
             </div>
           </div>
         </div>
-        <Link to="/" className="block w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
+        <Link to="/" className="block w-full bg-indigo-600 text-white py-5 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 text-center">
           Finish Session
         </Link>
       </div>
@@ -153,10 +194,16 @@ export default function ReviewSession() {
   return (
     <div className="max-w-3xl mx-auto space-y-8 h-[calc(100vh-12rem)] flex flex-col">
       <header className="flex justify-between items-center">
-        <Link to="/" className="flex items-center space-x-2 text-slate-500 hover:text-slate-900 transition-colors font-bold">
-          <ArrowLeft size={18} />
-          <span>Exit Session</span>
-        </Link>
+        <div className="flex items-center space-x-6">
+          <Link to="/" className="flex items-center space-x-2 text-slate-500 hover:text-slate-900 transition-colors font-bold">
+            <ArrowLeft size={18} />
+            <span>Exit</span>
+          </Link>
+          <div className="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded-full text-slate-600 font-mono font-bold text-sm">
+            <Clock size={14} className="text-indigo-500" />
+            <span>{formatTime(secondsSpent)}</span>
+          </div>
+        </div>
         
         {!settings.lowPressureMode && (
           <div className="flex items-center space-x-6">

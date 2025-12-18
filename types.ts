@@ -40,10 +40,13 @@ export interface Concept {
   prerequisites: string[];
 }
 
+export type StudyCategory = 'Engineering' | 'Medical' | 'Geography' | 'Science' | 'Arts' | 'Other';
+
 export interface StudySet {
   id: string;
   title: string;
   topic: string;
+  category: StudyCategory;
   flashcards: Flashcard[];
   concepts: Concept[];
   createdAt: number;
@@ -53,7 +56,7 @@ export interface StudySet {
 }
 
 export interface UserProgress {
-  totalStudyTime: number;
+  totalStudyTime: number; // Stored in seconds
   masteredConcepts: number;
   streak: number;
   xp: number;
