@@ -1,0 +1,8 @@
+{
+  "name": "AISA: Advanced Intelligent Study Assistant",
+  "description": "A next-generation AI educational platform integrating verifiable knowledge, adaptive learning science (SM-2), and Socratic tutoring with an offline-first architecture.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

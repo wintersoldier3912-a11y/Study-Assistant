@@ -1,0 +1,67 @@
+
+import { GoogleGenAI, Type } from "@google/genai";
+import { MODELS, SYSTEM_INSTRUCTIONS } from "../constants";
+import { Confidence, Flashcard } from "../types";
+
+export const geminiService = {
+  // Generate high-fidelity educational content from user notes
+  async generateStudyContent(topic: string, rawText: string) {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const response = await ai.models.generateContent({
+      model: MODELS.COMPLEX_REASONING,
+      contents: `Generate a study set for: ${topic}. Based on this text: ${rawText}`,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTIONS.GENERATOR,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            topic: { type: Type.STRING },
+            concepts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  prerequisites: { type: Type.ARRAY, items: { type: Type.STRING } }
+                }
+              }
+            },
+            flashcards: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  answer: { type: Type.STRING },
+                  confidence: { type: Type.STRING, enum: Object.values(Confidence) }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return JSON.parse(response.text || '{}');
+  },
+
+  // Socratic mentor interaction using chat history and context
+  async getSocraticTutorResponse(history: { role: string, parts: { text: string }[] }[], context: string) {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const chat = ai.chats.create({
+      model: MODELS.TEXT_TASKS,
+      config: {
+        systemInstruction: `${SYSTEM_INSTRUCTIONS.SOCRATIC_TUTOR}\nContext for the lesson: ${context}`,
+      }
+    });
+
+    const lastMessage = history[history.length - 1]?.parts[0].text;
+    const response = await chat.sendMessage({ message: lastMessage || '' });
+    return response.text || '';
+  }
+};

@@ -1,0 +1,52 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AISA - Intelligent Study Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dyslexia-font {
+            font-family: 'Lexend', sans-serif !important;
+            letter-spacing: 0.03em;
+            word-spacing: 0.1em;
+        }
+
+        .high-contrast {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+        }
+
+        .high-contrast .bg-white { background-color: #fff !important; border: 2px solid #000 !important; }
+        .high-contrast .text-slate-500 { color: #000 !important; font-weight: 600; }
+        .high-contrast .bg-slate-50 { background-color: #eeeeee !important; }
+
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
+        .dark-glass { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(10px); }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+</body>
+</html>
