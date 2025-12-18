@@ -24,8 +24,9 @@ export default function Tutor() {
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
   const [sets, setSets] = useState<StudySet[]>([]);
   const [secondsSpent, setSecondsSpent] = useState(0);
+  
+  const startTimeRef = useRef<number>(Date.now());
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Fix: Use ReturnType<typeof setInterval> instead of NodeJS.Timeout to avoid namespace errors in browser environments
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleSpeech = useCallback((text: string) => {
@@ -49,9 +50,9 @@ export default function Tutor() {
       handleSpeech(welcome);
     }
 
-    // Live Tracking
+    // High-precision tracking
     timerRef.current = setInterval(() => {
-      setSecondsSpent(prev => prev + 1);
+      setSecondsSpent(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
 
     return () => {
@@ -63,16 +64,11 @@ export default function Tutor() {
   }, [settings.textToSpeech, handleSpeech]);
 
   const saveTutorTime = async () => {
-    // Note: React state in cleanup can be tricky, using a simple capture here.
-    // In a production app, we might use a ref for the latest time.
-    setSecondsSpent(current => {
-      if (current > 0) {
-        dbService.getProgress().then(p => {
-          dbService.updateProgress({ totalStudyTime: p.totalStudyTime + current });
-        });
-      }
-      return 0;
-    });
+    const finalSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    if (finalSeconds > 0) {
+      const p = await dbService.getProgress();
+      await dbService.updateProgress({ totalStudyTime: p.totalStudyTime + finalSeconds });
+    }
   };
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export default function Tutor() {
       history.push({ role: 'user', parts: [{ text: input }] });
 
       const context = selectedSet 
-        ? `Study Set Topic: ${selectedSet.topic}. Concepts: ${selectedSet.concepts.map(c => c.name).join(', ')}`
+        ? `Study Set Topic: ${selectedSet.topic}. Category: ${selectedSet.category}. Concepts: ${selectedSet.concepts.map(c => c.name).join(', ')}`
         : "General knowledge exploration mode.";
 
       const reply = await geminiService.getSocraticTutorResponse(history, context);

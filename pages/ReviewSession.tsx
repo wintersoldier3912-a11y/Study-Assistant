@@ -29,22 +29,21 @@ export default function ReviewSession() {
   const [finished, setFinished] = useState(false);
   const [secondsSpent, setSecondsSpent] = useState(0);
   
-  // Fix: Use ReturnType<typeof setInterval> instead of NodeJS.Timeout to avoid namespace errors in browser environments
+  const startTimeRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadCards();
     
-    // Start real-time tracking
+    // Improved real-time tracking: calculate diff from start time for maximum accuracy
     timerRef.current = setInterval(() => {
-      setSecondsSpent(prev => prev + 1);
+      setSecondsSpent(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
 
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        // Persist even on partial exit
-        savePartialStudyTime();
+        saveFinalStudyTime();
       }
     };
   }, [setId]);
@@ -63,17 +62,12 @@ export default function ReviewSession() {
     setCards(cardsToReview.sort(() => Math.random() - 0.5));
   };
 
-  const savePartialStudyTime = async () => {
-    // We get secondsSpent from state which might be slightly behind during unmount, 
-    // but close enough for accuracy.
-    const p = await dbService.getProgress();
-    // Using a ref or capturing a value is usually safer but here state is updated every 1s
-    setSecondsSpent(current => {
-       if (current > 0) {
-         dbService.updateProgress({ totalStudyTime: p.totalStudyTime + current });
-       }
-       return 0; // Reset for logic
-    });
+  const saveFinalStudyTime = async () => {
+    const finalSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    if (finalSeconds > 0) {
+      const p = await dbService.getProgress();
+      await dbService.updateProgress({ totalStudyTime: p.totalStudyTime + finalSeconds });
+    }
   };
 
   const handleSpeech = useCallback((text: string) => {
@@ -130,13 +124,14 @@ export default function ReviewSession() {
       if (timerRef.current) clearInterval(timerRef.current);
       
       const p = await dbService.getProgress();
+      const finalSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
       await dbService.updateProgress({ 
         masteredConcepts: p.masteredConcepts + 1,
-        totalStudyTime: p.totalStudyTime + secondsSpent,
+        totalStudyTime: p.totalStudyTime + finalSeconds,
         xp: p.xp + (cards.length * 10)
       });
-      // Zero out local secondsSpent so unmount doesn't double-save
-      setSecondsSpent(0);
+      // Update local UI state
+      setSecondsSpent(finalSeconds);
     }
   };
 

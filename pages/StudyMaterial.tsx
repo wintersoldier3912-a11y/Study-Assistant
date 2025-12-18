@@ -56,7 +56,7 @@ export default function StudyMaterial() {
     setLoading(true);
     setStatus(null);
     try {
-      const generated = await geminiService.generateStudyContent(topic, rawText);
+      const generated = await geminiService.generateStudyContent(topic, rawText, selectedCategory);
       const newSet: StudySet = {
         id: crypto.randomUUID(),
         title: generated.title || topic,
@@ -92,6 +92,15 @@ export default function StudyMaterial() {
   const toggleOffline = async (id: string) => {
     await dbService.toggleDownload(id);
     loadSets();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this pack?')) {
+      const existing = await dbService.getStudySets();
+      const updated = existing.filter(s => s.id !== id);
+      localStorage.setItem('aisa_study_sets', JSON.stringify(updated));
+      loadSets();
+    }
   };
 
   const filteredSets = filterCategory === 'All' 
@@ -245,7 +254,10 @@ export default function StudyMaterial() {
                         >
                           {set.isOffline ? <CloudCheck size={18} /> : <Download size={18} />}
                         </button>
-                        <button className="p-2 bg-slate-50 rounded-xl text-slate-300 hover:text-rose-500 transition-colors">
+                        <button 
+                          onClick={() => handleDelete(set.id)}
+                          className="p-2 bg-slate-50 rounded-xl text-slate-300 hover:text-rose-500 transition-colors"
+                        >
                           <Trash2 size={18} />
                         </button>
                       </div>
