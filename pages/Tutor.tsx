@@ -13,7 +13,8 @@ import {
   Sparkles,
   Info,
   Volume2,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 
 export default function Tutor() {
@@ -21,6 +22,7 @@ export default function Tutor() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hintLoading, setHintLoading] = useState(false);
   const [selectedSet, setSelectedSet] = useState<StudySet | null>(null);
   const [sets, setSets] = useState<StudySet[]>([]);
   const [secondsSpent, setSecondsSpent] = useState(0);
@@ -83,8 +85,17 @@ export default function Tutor() {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
+  const getChatHistory = () => messages.map(m => ({
+    role: m.role,
+    parts: [{ text: m.content }]
+  }));
+
+  const getContext = () => selectedSet 
+    ? `Study Set Topic: ${selectedSet.topic}. Category: ${selectedSet.category}. Concepts: ${selectedSet.concepts.map(c => c.name).join(', ')}`
+    : "General knowledge exploration mode.";
+
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || hintLoading) return;
 
     const userMsg: ChatMessage = { role: 'user', content: input, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
@@ -92,17 +103,10 @@ export default function Tutor() {
     setLoading(true);
 
     try {
-      const history = messages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.content }]
-      }));
+      const history = getChatHistory();
       history.push({ role: 'user', parts: [{ text: input }] });
 
-      const context = selectedSet 
-        ? `Study Set Topic: ${selectedSet.topic}. Category: ${selectedSet.category}. Concepts: ${selectedSet.concepts.map(c => c.name).join(', ')}`
-        : "General knowledge exploration mode.";
-
-      const reply = await geminiService.getSocraticTutorResponse(history, context);
+      const reply = await geminiService.getSocraticTutorResponse(history, getContext());
       
       const botMsg: ChatMessage = {
         role: 'model',
@@ -123,6 +127,33 @@ export default function Tutor() {
       }]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGetHint = async () => {
+    if (loading || hintLoading) return;
+    setHintLoading(true);
+
+    try {
+      const history = getChatHistory();
+      const reply = await geminiService.getSocraticHint(history, getContext());
+      
+      const botMsg: ChatMessage = {
+        role: 'model',
+        content: reply,
+        timestamp: Date.now(),
+        isSocraticHint: true
+      };
+      
+      setMessages(prev => [...prev, botMsg]);
+      
+      if (settings.textToSpeech) {
+        handleSpeech(botMsg.content);
+      }
+    } catch (error) {
+      console.error("Hint error:", error);
+    } finally {
+      setHintLoading(false);
     }
   };
 
@@ -165,17 +196,21 @@ export default function Tutor() {
               <div className={`flex max-w-[80%] space-x-3 ${m.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   m.role === 'user' ? 'bg-indigo-600 text-white' : 
-                  m.role === 'system' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-600'
+                  m.role === 'system' ? 'bg-rose-100 text-rose-600' : 
+                  m.isSocraticHint ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-600'
                 }`}>
-                  {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                  {m.role === 'user' ? <User size={16} /> : (m.isSocraticHint ? <Lightbulb size={16} /> : <Bot size={16} />)}
                 </div>
                 <div className={`relative p-4 rounded-2xl text-sm leading-relaxed group ${
                   m.role === 'user' 
                     ? 'bg-indigo-600 text-white rounded-tr-none' 
                     : m.role === 'system'
                     ? 'bg-rose-50 text-rose-700 border border-rose-100'
+                    : m.isSocraticHint
+                    ? 'bg-amber-50 text-amber-900 border border-amber-200 rounded-tl-none italic'
                     : 'bg-slate-50 text-slate-800 border border-slate-100 rounded-tl-none'
                 }`}>
+                  {m.isSocraticHint && <div className="text-[10px] font-black uppercase tracking-widest mb-1 text-amber-600">Probing Hint</div>}
                   {m.content}
                   
                   {m.role === 'model' && (
@@ -191,16 +226,16 @@ export default function Tutor() {
               </div>
             </div>
           ))}
-          {loading && (
+          {(loading || hintLoading) && (
             <div className="flex justify-start">
               <div className="flex space-x-3 items-center">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                  <Bot size={16} className="text-slate-400" />
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${hintLoading ? 'bg-amber-100' : 'bg-slate-100'}`}>
+                  {hintLoading ? <Lightbulb size={16} className="text-amber-400" /> : <Bot size={16} className="text-slate-400" />}
                 </div>
                 <div className="flex space-x-1">
-                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce delay-75" />
-                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce delay-150" />
-                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce delay-225" />
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce delay-75 ${hintLoading ? 'bg-amber-400' : 'bg-indigo-400'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce delay-150 ${hintLoading ? 'bg-amber-400' : 'bg-indigo-400'}`} />
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce delay-225 ${hintLoading ? 'bg-amber-400' : 'bg-indigo-400'}`} />
                 </div>
               </div>
             </div>
@@ -208,32 +243,50 @@ export default function Tutor() {
         </div>
 
         {/* Input area */}
-        <div className="p-6 border-t border-slate-100">
-          <div className="relative">
-            <input 
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask a question about your study material..."
-              className="w-full bg-slate-50 border border-slate-200 pl-4 pr-12 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-            />
+        <div className="p-6 border-t border-slate-100 bg-slate-50/30">
+          <div className="flex items-center space-x-3">
             <button 
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-              className="absolute right-2 top-2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all"
+              onClick={handleGetHint}
+              disabled={loading || hintLoading}
+              className={`p-4 rounded-2xl flex items-center justify-center transition-all ${
+                hintLoading 
+                ? 'bg-amber-100 text-amber-400' 
+                : 'bg-white text-amber-500 border border-amber-100 hover:bg-amber-50 hover:shadow-md'
+              }`}
+              title="Get a Socratic hint"
             >
-              <Send size={20} />
+              <Lightbulb size={24} className={hintLoading ? 'animate-pulse' : ''} />
             </button>
+            <div className="relative flex-1">
+              <input 
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="Ask a question about your study material..."
+                className="w-full bg-white border border-slate-200 pl-4 pr-12 py-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-800"
+              />
+              <button 
+                onClick={handleSend}
+                disabled={!input.trim() || loading || hintLoading}
+                className="absolute right-2 top-2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
+              >
+                <Send size={20} />
+              </button>
+            </div>
           </div>
-          <div className="mt-3 flex items-center space-x-4 text-xs font-medium text-slate-400">
-            <span className="flex items-center space-x-1">
-              <Lightbulb size={12} className="text-amber-500" />
-              <span>Hint: Try "Explain this to me like I'm 10"</span>
+          <div className="mt-4 flex items-center space-x-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <span className="flex items-center space-x-1.5">
+              <Zap size={12} className="text-indigo-500" />
+              <span>Socratic Method</span>
             </span>
-            <span className="flex items-center space-x-1">
+            <span className="flex items-center space-x-1.5">
+              <Lightbulb size={12} className="text-amber-500" />
+              <span>Hint button for stuck moments</span>
+            </span>
+            <span className="flex items-center space-x-1.5">
               <Info size={12} />
-              <span>Socratic Mode Active</span>
+              <span>Verifiable Content Only</span>
             </span>
           </div>
         </div>

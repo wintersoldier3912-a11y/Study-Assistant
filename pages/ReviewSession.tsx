@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { dbService } from '../services/dbService';
-import { StudySet, Flashcard } from '../types';
+import { StudySet, Flashcard, Confidence } from '../types';
 import { useSettings } from '../App';
 import { 
   ArrowLeft, 
@@ -14,8 +14,40 @@ import {
   Volume2,
   Heart,
   Zap,
-  Clock
+  Clock,
+  ShieldCheck,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
+
+const ConfidenceBadge = ({ confidence }: { confidence: Confidence }) => {
+  const config = {
+    [Confidence.High]: {
+      style: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      icon: ShieldCheck,
+      label: 'Verified Knowledge'
+    },
+    [Confidence.Medium]: {
+      style: 'bg-amber-50 text-amber-700 border-amber-100',
+      icon: AlertTriangle,
+      label: 'Likely Accurate'
+    },
+    [Confidence.Low]: {
+      style: 'bg-rose-50 text-rose-700 border-rose-100',
+      icon: ShieldAlert,
+      label: 'Low Confidence'
+    }
+  };
+
+  const { style, icon: Icon, label } = config[confidence] || config[Confidence.Medium];
+
+  return (
+    <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border animate-in fade-in zoom-in duration-500 ${style}`}>
+      <Icon size={12} />
+      <span>{label} ({confidence})</span>
+    </div>
+  );
+};
 
 export default function ReviewSession() {
   const { settings } = useSettings();
@@ -245,11 +277,14 @@ export default function ReviewSession() {
             </h3>
             
             {showAnswer && (
-              <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
-                <div className="h-px bg-slate-200 w-2/3 mx-auto mb-10" />
-                <p className="text-2xl text-slate-800 font-medium leading-relaxed">
-                  {currentCard.answer}
-                </p>
+              <div className="animate-in fade-in slide-in-from-bottom-6 duration-500 space-y-6">
+                <div className="h-px bg-slate-200 w-2/3 mx-auto mb-6" />
+                <div className="flex flex-col items-center space-y-4">
+                  <ConfidenceBadge confidence={currentCard.confidence} />
+                  <p className="text-2xl text-slate-800 font-medium leading-relaxed">
+                    {currentCard.answer}
+                  </p>
+                </div>
               </div>
             )}
           </div>

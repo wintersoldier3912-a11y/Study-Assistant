@@ -66,5 +66,19 @@ export const geminiService = {
     const lastMessage = history[history.length - 1]?.parts[0].text;
     const response = await chat.sendMessage({ message: lastMessage || '' });
     return response.text || '';
+  },
+
+  // Dedicated hint generation logic
+  async getSocraticHint(history: { role: string, parts: { text: string }[] }[], context: string) {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const chat = ai.chats.create({
+      model: MODELS.TEXT_TASKS,
+      config: {
+        systemInstruction: `${SYSTEM_INSTRUCTIONS.SOCRATIC_TUTOR}\nContext for the lesson: ${context}\n\nTask: The student is asking for a hint. Do NOT give the answer. Instead, provide a small nudge, an analogy, or a guiding question that helps them move forward from where they are stuck.`,
+      }
+    });
+
+    const response = await chat.sendMessage({ message: "Can you give me a small hint to help me think about this correctly?" });
+    return response.text || '';
   }
 };
